@@ -1,5 +1,6 @@
 
 from pathlib import Path
+import re
 import streamlit as st
 import streamlit.components.v1 as components
 
@@ -10,51 +11,83 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-html_file = Path(__file__).parent / "frontend.html"
+# Keep Streamlit's page uncluttered.
+st.markdown("""
+<style>
+#MainMenu, footer, header,
+[data-testid="stToolbar"],
+[data-testid="stDecoration"] {
+    display: none !important;
+}
+.stApp, [data-testid="stAppViewContainer"] {
+    background: #f5eeea;
+}
+.block-container {
+    padding: 0 !important;
+    max-width: 100% !important;
+}
+</style>
+""", unsafe_allow_html=True)
 
-if not html_file.exists():
-    st.error("frontend.html is missing from the repository.")
+file_path = Path(__file__).parent / "frontend.html"
+
+if not file_path.is_file():
+    st.error("Cannot find frontend.html beside streamlit_app.py.")
+    st.write("Files found in this folder:")
+    st.write([p.name for p in Path(__file__).parent.iterdir()])
     st.stop()
 
-html = html_file.read_text(encoding="utf-8")
+html = file_path.read_text(encoding="utf-8").strip()
 
-# Remove Markdown fences accidentally copied into the HTML file.
-html = html.strip()
-if html.startswith("```html"):
-    html = html[len("```html"):].lstrip()
-elif html.startswith("```"):
-    html = html[3:].lstrip()
+# Remove Markdown fences accidentally pasted into the file.
+html = re.sub(r"^\s*```(?:html)?\s*", "", html, flags=re.IGNORECASE)
+html = re.sub(r"\s*```\s*$", "", html)
 
-if html.endswith("```"):
-    html = html[:-3].rstrip()
+if "<html" not in html.lower() or "<body" not in html.lower():
+    st.error("frontend.html does not contain a complete HTML document.")
+    st.stop()
 
-# Ensure page content remains visible even if scroll animations fail.
-fallback_css = """
+# Disable entrance effects that can leave content invisible.
+emergency_css = """
 <style>
 html, body {
-    margin: 0 !important;
-    padding: 0 !important;
     min-height: 100% !important;
+    height: auto !important;
     overflow-x: hidden !important;
+    background: #f5eeea !important;
 }
-main, main section, main section .wrap,
-main section .reveal, main section .is-visible,
-main section .section-head, main section .card,
-main section .panel, main section .timeline-item,
-main section .skill, main section .profile-card,
-main section .wip-feature {
-    opacity: 1 !important;
+#motion-curtain, #intro, #route-wipe {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+}
+.reveal, .is-visible, .section-head,
+.section-title .word > span,
+main, main section, main section *,
+section .wrap, .hero, .profile-card,
+.project, .wip-card, .resume-card,
+.education-card, .panel, .skill,
+.timeline-item, .contact-panel {
     visibility: visible !important;
+    opacity: 1 !important;
     filter: none !important;
+}
+.reveal, .section-title .word > span {
+    transform: none !important;
+    animation: none !important;
 }
 </style>
 """
 
-if "</head>" in html.lower():
-    pos = html.lower().find("</head>")
-    html = html[:pos] + fallback_css + html[pos:]
+# Insert emergency styles inside the existing head.
+head_match = re.search(r"</head\s*>", html, flags=re.IGNORECASE)
+if head_match:
+    html = html[:head_match.start()] + emergency_css + html[head_match.start():]
 else:
-    html = fallback_css + html
+    html = emergency_css + html
+
+st.caption("Portfolio diagnostic mode")
 
 components.html(
     html,
