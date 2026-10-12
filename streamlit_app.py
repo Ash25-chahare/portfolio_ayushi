@@ -10,41 +10,15 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-st.markdown(
-    """
-    <style>
-    #MainMenu, footer, header,
-    [data-testid="stToolbar"],
-    [data-testid="stDecoration"],
-    [data-testid="stStatusWidget"] {
-        display: none !important;
-    }
-    .stApp, [data-testid="stAppViewContainer"] {
-        background: #f5eeea;
-    }
-    .block-container {
-        padding: 0 !important;
-        max-width: 100% !important;
-    }
-    iframe {
-        display: block;
-        border: 0 !important;
-        width: 100% !important;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
-
 html_file = Path(__file__).parent / "frontend.html"
 
 if not html_file.exists():
-    st.error("frontend.html is missing from the repository root.")
+    st.error("frontend.html is missing from the repository.")
     st.stop()
 
 html = html_file.read_text(encoding="utf-8")
 
-# Remove accidental Markdown fences if the file was copied from a code block.
+# Remove Markdown fences accidentally copied into the HTML file.
 html = html.strip()
 if html.startswith("```html"):
     html = html[len("```html"):].lstrip()
@@ -54,9 +28,33 @@ elif html.startswith("```"):
 if html.endswith("```"):
     html = html[:-3].rstrip()
 
-if "<html" not in html.lower() or "<body" not in html.lower():
-    st.error("frontend.html does not appear to contain a complete HTML document.")
-    st.stop()
+# Ensure page content remains visible even if scroll animations fail.
+fallback_css = """
+<style>
+html, body {
+    margin: 0 !important;
+    padding: 0 !important;
+    min-height: 100% !important;
+    overflow-x: hidden !important;
+}
+main, main section, main section .wrap,
+main section .reveal, main section .is-visible,
+main section .section-head, main section .card,
+main section .panel, main section .timeline-item,
+main section .skill, main section .profile-card,
+main section .wip-feature {
+    opacity: 1 !important;
+    visibility: visible !important;
+    filter: none !important;
+}
+</style>
+"""
+
+if "</head>" in html.lower():
+    pos = html.lower().find("</head>")
+    html = html[:pos] + fallback_css + html[pos:]
+else:
+    html = fallback_css + html
 
 components.html(
     html,
