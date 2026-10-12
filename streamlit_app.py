@@ -10,7 +10,6 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-# Hide Streamlit's default interface to keep the portfolio immersive.
 st.markdown(
     """
     <style>
@@ -20,37 +19,47 @@ st.markdown(
     [data-testid="stStatusWidget"] {
         display: none !important;
     }
-
-    .stApp {
+    .stApp, [data-testid="stAppViewContainer"] {
         background: #f5eeea;
     }
-
     .block-container {
         padding: 0 !important;
         max-width: 100% !important;
     }
-
     iframe {
-        border: none !important;
+        display: block;
+        border: 0 !important;
+        width: 100% !important;
     }
     </style>
     """,
     unsafe_allow_html=True,
 )
 
-html_path = Path(__file__).parent / "frontend.html"
+html_file = Path(__file__).parent / "frontend.html"
 
-if not html_path.exists():
-    st.error(
-        "frontend.html was not found. "
-        "Upload it to the same GitHub directory as streamlit_app.py."
-    )
+if not html_file.exists():
+    st.error("frontend.html is missing from the repository root.")
     st.stop()
 
-html_content = html_path.read_text(encoding="utf-8")
+html = html_file.read_text(encoding="utf-8")
+
+# Remove accidental Markdown fences if the file was copied from a code block.
+html = html.strip()
+if html.startswith("```html"):
+    html = html[len("```html"):].lstrip()
+elif html.startswith("```"):
+    html = html[3:].lstrip()
+
+if html.endswith("```"):
+    html = html[:-3].rstrip()
+
+if "<html" not in html.lower() or "<body" not in html.lower():
+    st.error("frontend.html does not appear to contain a complete HTML document.")
+    st.stop()
 
 components.html(
-    html_content,
-    height=12000,
+    html,
+    height=14000,
     scrolling=True,
 )
